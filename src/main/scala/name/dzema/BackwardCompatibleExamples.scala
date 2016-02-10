@@ -9,7 +9,7 @@ import org.apache.avro.io.{DecoderFactory, EncoderFactory, BinaryEncoder}
 /**
   * Created by dzema on 08/02/16.
   */
-object AvroTest {
+object BackwardCompatibleExamples {
   val schemaV1 = SchemaBuilder
     .record("TestSchema").namespace("com.fyber.test")
     .fields()
