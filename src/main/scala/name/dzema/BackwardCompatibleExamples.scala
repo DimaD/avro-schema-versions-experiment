@@ -6,9 +6,6 @@ import org.apache.avro.SchemaBuilder
 import org.apache.avro.generic.{GenericDatumReader, GenericDatumWriter, GenericRecord, GenericRecordBuilder}
 import org.apache.avro.io.{DecoderFactory, EncoderFactory, BinaryEncoder}
 
-/**
-  * Created by dzema on 08/02/16.
-  */
 object BackwardCompatibleExamples {
   val schemaV1 = SchemaBuilder
     .record("TestSchema").namespace("com.fyber.test")
@@ -30,21 +27,31 @@ object BackwardCompatibleExamples {
     val out = new ByteArrayOutputStream()
     val encoder = EncoderFactory.get.directBinaryEncoder(out, null)
     v1DatumWriter.write(genericV1Record, encoder)
+    val payload = out.toByteArray
 
     println(s"=> Encoded record with schema V1: $genericV1Record into byte array '${out.toString}'\n")
 
     println("=> Decoding with schema where new field is added in the middle")
-    try {
-      val visuallyCompatibleSchema = SchemaBuilder
-        .record("TestSchema").namespace("com.fyber.test")
-        .fields()
-        .name("f1").`type`.stringType().noDefault()
-        .name("new_field").`type`.stringType().stringDefault("default value of new field")
-        .name("f2").`type`.intType().noDefault()
-        .endRecord()
+    val schemaWithNewFieldInTheMiddle = SchemaBuilder
+      .record("TestSchema").namespace("com.fyber.test")
+      .fields()
+      .name("f1").`type`.stringType().noDefault()
+      .name("new_field").`type`.stringType().stringDefault("default value of new field")
+      .name("f2").`type`.intType().noDefault()
+      .endRecord()
 
-      val datumReader = new GenericDatumReader[GenericRecord](visuallyCompatibleSchema)
-      datumReader.read(null, df.binaryDecoder(out.toByteArray, null))
+    val vcDatumReader = new GenericDatumReader[GenericRecord](schemaWithNewFieldInTheMiddle)
+    println("==> Using binaryDecoder")
+    try {
+      vcDatumReader.read(null, df.binaryDecoder(payload, null))
+    } catch {
+      case e: Exception => println(s"Got exception: $e\n")
+    }
+
+    println("==> Using resolving binaryDecoder")
+    try {
+      val vcRdDecoder = df.resolvingDecoder(schemaV1, schemaWithNewFieldInTheMiddle, df.binaryDecoder(payload, null))
+      vcDatumReader.read(null, vcRdDecoder)
     } catch {
       case e: Exception => println(s"Got exception: $e\n")
     }
@@ -58,16 +65,20 @@ object BackwardCompatibleExamples {
       .endRecord()
     val datumReader = new GenericDatumReader[GenericRecord](compatibleSchema)
 
-    println("=> Decoding directly with schema where new field is added at the end")
 
+
+
+    println("=> Decoding with schema where new field is added at the end")
+
+    println("==> Using binaryDecoder")
     try {
-      datumReader.read(null, df.binaryDecoder(out.toByteArray, null))
+      datumReader.read(null, df.binaryDecoder(payload, null))
     } catch {
       case e: Exception => println(s"Got exception: $e\n")
     }
 
-    println("=> Decoding with resolving decoder:")
-    val decoder = df.resolvingDecoder(schemaV1, compatibleSchema, df.binaryDecoder(out.toByteArray, null))
+    println("==> Using resolving binaryDecoder")
+    val decoder = df.resolvingDecoder(schemaV1, compatibleSchema, df.binaryDecoder(payload, null))
     val record = datumReader.read(null, decoder)
     println(s"Got record: $record")
 
