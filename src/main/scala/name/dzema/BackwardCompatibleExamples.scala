@@ -2,8 +2,8 @@ package name.dzema
 
 import java.io.ByteArrayOutputStream
 
-import org.apache.avro.SchemaBuilder
-import org.apache.avro.generic.{GenericDatumReader, GenericDatumWriter, GenericRecord, GenericRecordBuilder}
+import org.apache.avro.{Schema, SchemaBuilder}
+import org.apache.avro.generic._
 import org.apache.avro.io.{DecoderFactory, EncoderFactory, BinaryEncoder}
 
 object BackwardCompatibleExamples {
@@ -19,17 +19,48 @@ object BackwardCompatibleExamples {
     set("f2", 42).
     build()
 
-  val v1DatumWriter =  new GenericDatumWriter[GenericRecord](schemaV1)
-
   val df = DecoderFactory.get()
 
-  def main(args: Array[String]): Unit = {
+  def encodeToBinaryAvro(schema: Schema, record: GenericRecord): Array[Byte] = {
     val out = new ByteArrayOutputStream()
     val encoder = EncoderFactory.get.directBinaryEncoder(out, null)
-    v1DatumWriter.write(genericV1Record, encoder)
-    val payload = out.toByteArray
+    val datumWriter =  new GenericDatumWriter[GenericRecord](schema)
 
-    println(s"=> Encoded record with schema V1: $genericV1Record into byte array '${out.toString}'\n")
+    datumWriter.write(record, encoder)
+    out.toByteArray
+  }
+
+  def decodeBinaryAvro(schema: Schema, payload: Array[Byte]): GenericRecord = {
+    val datumReader = new GenericDatumReader[GenericRecord](schema)
+
+    datumReader.read(null, df.binaryDecoder(payload, null))
+  }
+
+  def decodeAndResolveBinaryAvro(writerSchema: Schema, resolveTo: Schema, payload: Array[Byte]): GenericRecord = {
+    val datumReader = new GenericDatumReader[GenericRecord](resolveTo)
+    val decoder = df.resolvingDecoder(writerSchema, resolveTo, df.binaryDecoder(payload, null))
+
+    datumReader.read(null, decoder)
+  }
+
+  def demonstrateFailure(description: String)(f: () => Any): Unit = {
+    println(s"==> $description")
+
+    try {
+      f()
+    } catch {
+      case e: Exception => println(s"  Got exception: $e\n")
+    }
+  }
+
+  def demonstrateSuccess(description: String)(f: () => GenericRecord): Unit = {
+    println(s"==> $description")
+    println(s"  Got record: ${f()}")
+  }
+  def main(args: Array[String]): Unit = {
+    val payload = encodeToBinaryAvro(schemaV1, genericV1Record)
+
+    println(s"=> Encoded record with schema V1: $genericV1Record into byte array '${new String(payload)}'\n")
 
     println("=> Decoding with schema where new field is added in the middle")
     val schemaWithNewFieldInTheMiddle = SchemaBuilder
@@ -40,20 +71,12 @@ object BackwardCompatibleExamples {
       .name("f2").`type`.intType().noDefault()
       .endRecord()
 
-    val vcDatumReader = new GenericDatumReader[GenericRecord](schemaWithNewFieldInTheMiddle)
-    println("==> Using binaryDecoder")
-    try {
-      vcDatumReader.read(null, df.binaryDecoder(payload, null))
-    } catch {
-      case e: Exception => println(s"Got exception: $e\n")
+    demonstrateFailure("Using binaryDecoder") { () =>
+      decodeBinaryAvro(schemaWithNewFieldInTheMiddle, payload)
     }
 
-    println("==> Using resolving binaryDecoder")
-    try {
-      val vcRdDecoder = df.resolvingDecoder(schemaV1, schemaWithNewFieldInTheMiddle, df.binaryDecoder(payload, null))
-      vcDatumReader.read(null, vcRdDecoder)
-    } catch {
-      case e: Exception => println(s"Got exception: $e\n")
+    demonstrateFailure("Using resolving binaryDecoder") { () =>
+      decodeAndResolveBinaryAvro(schemaV1, schemaWithNewFieldInTheMiddle, payload)
     }
 
     val compatibleSchema = SchemaBuilder
@@ -65,27 +88,74 @@ object BackwardCompatibleExamples {
       .endRecord()
     val datumReader = new GenericDatumReader[GenericRecord](compatibleSchema)
 
-
-
-
     println("=> Decoding with schema where new field is added at the end")
 
-    println("==> Using binaryDecoder")
-    try {
-      datumReader.read(null, df.binaryDecoder(payload, null))
-    } catch {
-      case e: Exception => println(s"Got exception: $e\n")
+    demonstrateFailure("Using binaryDecoder") { () =>
+      decodeBinaryAvro(compatibleSchema, payload)
     }
 
-    println("==> Using resolving binaryDecoder")
-    val decoder = df.resolvingDecoder(schemaV1, compatibleSchema, df.binaryDecoder(payload, null))
-    val record = datumReader.read(null, decoder)
-    println(s"Got record: $record")
+    demonstrateSuccess("Using resolving binaryDecoder") { () =>
+      decodeAndResolveBinaryAvro(schemaV1, compatibleSchema, payload)
+    }
 
     /*
      * Morales of the story:
      *   1. Add new fields to the end of the schema if you want it to be backward compatible.
      *   2. Use resolving decoder which confluent wire format makes possible.
+     */
+
+
+    println("\n----------------------------------------\n=> Compatibility of enum values")
+
+    val enumSchemaV1 = SchemaBuilder
+      .record("TestSchema").namespace("com.fyber.test")
+      .fields()
+      .name("f1").`type`.enumeration("f1").symbols("field", "b").noDefault()
+      .endRecord()
+
+    val enumSchema = enumSchemaV1.getField("f1").schema()
+    val enumRecord = new GenericRecordBuilder(enumSchemaV1).
+      set("f1", new GenericData.EnumSymbol(enumSchema, "field")).
+      build()
+
+    val enumPayload = encodeToBinaryAvro(enumSchemaV1, enumRecord)
+
+    println(s"=> Encoded record with enumSchemaV1: $enumRecord into byte array '${new String(enumPayload)}'\n")
+    println("==> Decoding to a schema where encoded enum symbol is renamed")
+    val enumSchemaV2 = SchemaBuilder
+      .record("TestSchema").namespace("com.fyber.test")
+      .fields()
+      .name("f1").`type`.enumeration("f1").symbols("field2", "b").noDefault()
+      .endRecord()
+
+    demonstrateSuccess("using binary decoder") { () =>
+      decodeBinaryAvro(enumSchemaV2, enumPayload)
+    }
+
+    demonstrateFailure("using resolving decoder") { () =>
+      decodeAndResolveBinaryAvro(enumSchemaV1, enumSchemaV2, enumPayload)
+    }
+
+    val enumSchemaV3 = SchemaBuilder
+      .record("TestSchema").namespace("com.fyber.test")
+      .fields()
+      .name("f1").`type`.enumeration("f1").symbols("newField", "field", "b").noDefault()
+      .endRecord()
+
+
+    println("==> Decoding to a schema where new enum symbol is added to a start of enumeration")
+    demonstrateSuccess("using binary decoder") { () =>
+      decodeBinaryAvro(enumSchemaV3, enumPayload)
+    }
+
+    demonstrateSuccess("using resolving decoder") { () =>
+      decodeAndResolveBinaryAvro(enumSchemaV1, enumSchemaV3, enumPayload)
+    }
+
+    /*
+     * Morales of this other story:
+     *   1. Renaming enum symbols is not a compatible change when resolving schemas
+     *   2. Binary decoder is fooled when enum symbol is renamed or new one is added not in the end position of enumeration
      */
   }
 }
