@@ -86,7 +86,6 @@ object BackwardCompatibleExamples {
       .name("f2").`type`.intType().noDefault()
       .name("new_field").`type`.stringType().stringDefault("default value of new field")
       .endRecord()
-    val datumReader = new GenericDatumReader[GenericRecord](compatibleSchema)
 
     println("=> Decoding with schema where new field is added at the end")
 
@@ -96,6 +95,17 @@ object BackwardCompatibleExamples {
 
     demonstrateSuccess("Using resolving binaryDecoder") { () =>
       decodeAndResolveBinaryAvro(schemaV1, compatibleSchema, payload)
+    }
+
+    println("\n=> Decoding with schema where field was dropped")
+    val compatibleSchemaWithoutAField = SchemaBuilder
+      .record("TestSchema").namespace("com.fyber.test")
+      .fields()
+      .name("f1").`type`.stringType().noDefault()
+      .endRecord()
+
+    demonstrateSuccess("Using resolving binaryDecoder") { () =>
+      decodeAndResolveBinaryAvro(schemaV1, compatibleSchemaWithoutAField, payload)
     }
 
     /*
