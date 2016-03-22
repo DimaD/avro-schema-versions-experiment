@@ -33,11 +33,11 @@ object BackwardCompatibleExamples extends CompatibilityDemonstration {
       .name("f2").`type`.intType().noDefault()
       .endRecord()
 
-    demonstrateFailure("Using binaryDecoder") { () =>
+    demonstrateFailure("Using binaryDecoder") {
       decodeBinaryAvro(schemaWithNewFieldInTheMiddle, payload)
     }
 
-    demonstrateFailure("Using resolving binaryDecoder") { () =>
+    demonstrateFailure("Using resolving binaryDecoder") {
       decodeAndResolveBinaryAvro(schemaV1, schemaWithNewFieldInTheMiddle, payload)
     }
 
@@ -51,11 +51,11 @@ object BackwardCompatibleExamples extends CompatibilityDemonstration {
 
     println("=> Decoding with schema where new field is added at the end")
 
-    demonstrateFailure("Using binaryDecoder") { () =>
+    demonstrateFailure("Using binaryDecoder") {
       decodeBinaryAvro(compatibleSchema, payload)
     }
 
-    demonstrateSuccess("Using resolving binaryDecoder") { () =>
+    demonstrateSuccess("Using resolving binaryDecoder") {
       decodeAndResolveBinaryAvro(schemaV1, compatibleSchema, payload)
     }
 
@@ -66,7 +66,7 @@ object BackwardCompatibleExamples extends CompatibilityDemonstration {
       .name("f1").`type`.stringType().noDefault()
       .endRecord()
 
-    demonstrateSuccess("Using resolving binaryDecoder") { () =>
+    demonstrateSuccess("Using resolving binaryDecoder") {
       decodeAndResolveBinaryAvro(schemaV1, compatibleSchemaWithoutAField, payload)
     }
 
@@ -100,11 +100,11 @@ object BackwardCompatibleExamples extends CompatibilityDemonstration {
       .name("f1").`type`.enumeration("f1").symbols("field2", "b").noDefault()
       .endRecord()
 
-    demonstrateSuccess("using binary decoder") { () =>
+    demonstrateSuccess("using binary decoder") {
       decodeBinaryAvro(enumSchemaV2, enumPayload)
     }
 
-    demonstrateFailure("using resolving decoder") { () =>
+    demonstrateFailure("using resolving decoder") {
       decodeAndResolveBinaryAvro(enumSchemaV1, enumSchemaV2, enumPayload)
     }
 
@@ -116,11 +116,11 @@ object BackwardCompatibleExamples extends CompatibilityDemonstration {
 
 
     println("==> Decoding to a schema where new enum symbol is added to a start of enumeration")
-    demonstrateSuccess("using binary decoder") { () =>
+    demonstrateSuccess("using binary decoder") {
       decodeBinaryAvro(enumSchemaV3, enumPayload)
     }
 
-    demonstrateSuccess("using resolving decoder") { () =>
+    demonstrateSuccess("using resolving decoder") {
       decodeAndResolveBinaryAvro(enumSchemaV1, enumSchemaV3, enumPayload)
     }
 

@@ -38,11 +38,11 @@ object ForwardCompatibilityExamples extends CompatibilityDemonstration {
     val forwardEnumPayload = encodeToBinaryAvro(forwardEnumSchemaB, forwardEnumRecord)
     println(s"=> Encoded record with forwardEnumSchemaB: $forwardEnumRecord into byte array '${new String(forwardEnumPayload)}'\n")
 
-    demonstrateFailure("using resolving decoder into schema without default value") { () =>
+    demonstrateFailure("using resolving decoder into schema without default value") {
       decodeAndResolveBinaryAvro(forwardEnumSchemaB, forwardEnumSchemaA, forwardEnumPayload)
     }
 
-    demonstrateFailure("using resolving decoder into schema with default value") { () =>
+    demonstrateFailure("using resolving decoder into schema with default value") {
       decodeAndResolveBinaryAvro(forwardEnumSchemaB, forwardEnumSchemaAwithDefault, forwardEnumPayload)
     }
   }

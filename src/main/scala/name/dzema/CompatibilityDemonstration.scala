@@ -33,18 +33,18 @@ trait CompatibilityDemonstration {
     datumReader.read(null, decoder)
   }
 
-  def demonstrateFailure(description: String)(f: () => Any): Unit = {
+  def demonstrateFailure(description: String)(f: => Any): Unit = {
     println(s"==> $description")
 
     try {
-      f()
+      f
     } catch {
       case e: Exception => println(s"  Got exception: $e\n")
     }
   }
 
-  def demonstrateSuccess(description: String)(f: () => GenericRecord): Unit = {
+  def demonstrateSuccess(description: String)(f: => GenericRecord): Unit = {
     println(s"==> $description")
-    println(s"  Got record: ${f()}")
+    println(s"  Got record: ${f}")
   }
 }
