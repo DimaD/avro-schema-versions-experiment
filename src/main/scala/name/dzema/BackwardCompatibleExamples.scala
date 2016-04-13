@@ -77,7 +77,7 @@ object BackwardCompatibleExamples extends CompatibilityDemonstration {
      */
 
 
-    println("\n----------------------------------------\n=> Compatibility of enum values")
+   println("\n----------------------------------------\n=> Compatibility of enum values")
 
     val enumSchemaV1 = SchemaBuilder
       .record("TestSchema").namespace("com.fyber.test")
@@ -129,5 +129,48 @@ object BackwardCompatibleExamples extends CompatibilityDemonstration {
      *   1. Renaming enum symbols is not a compatible change when resolving schemas
      *   2. Binary decoder is fooled when enum symbol is renamed or new one is added not in the end position of enumeration
      */
+
+    println("\n----------------------------------------\n=> Compatibility of data type changes")
+
+    val typeChangedSchema = SchemaBuilder
+      .record("TestSchema").namespace("com.fyber.test")
+      .fields()
+      .name("f1").`type`.stringType().noDefault()
+      .name("f2").`type`.longType().noDefault()
+      .endRecord()
+
+    println("=> Decoding with schema where data type is changed")
+
+    demonstrateSuccess("Using binaryDecoder") {
+      decodeBinaryAvro(typeChangedSchema, payload)
+    }
+
+    demonstrateSuccess("Using resolving binaryDecoder") {
+      decodeAndResolveBinaryAvro(schemaV1, typeChangedSchema, payload)
+    }
+
+    println("=> For data encoded with new schema")
+    val schemaV2 = SchemaBuilder
+      .record("TestSchema").namespace("com.fyber.test")
+      .fields()
+      .name("f1").`type`.stringType().noDefault()
+      .name("f2").`type`.longType().noDefault()
+      .endRecord()
+
+    val genericV2Record = new GenericRecordBuilder(schemaV2).
+      set("f1", "field 1 value").
+      set("f2", 42).
+      build()
+
+    val payloadV2 = encodeToBinaryAvro(schemaV2, genericV2Record)
+
+    println("=> When decoding trying to decode it with old schema")
+    demonstrateSuccess("Using binaryDecoder") {
+      decodeBinaryAvro(schemaV1, payload)
+    }
+
+    demonstrateSuccess("Using resolving binaryDecoder") {
+      decodeAndResolveBinaryAvro(schemaV1, typeChangedSchema, payload)
+    }
   }
 }
