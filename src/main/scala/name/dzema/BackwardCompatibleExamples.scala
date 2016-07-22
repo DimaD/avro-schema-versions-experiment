@@ -77,7 +77,7 @@ object BackwardCompatibleExamples extends CompatibilityDemonstration {
      */
 
 
-    println("\n----------------------------------------\n=> Compatibility of enum values")
+   println("\n----------------------------------------\n=> Compatibility of enum values")
 
     val enumSchemaV1 = SchemaBuilder
       .record("TestSchema").namespace("com.fyber.test")
